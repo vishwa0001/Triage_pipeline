@@ -1,6 +1,6 @@
 const API_URL = "http://localhost:8000/api";
 
-// Draw pie chart
+// Draw pie chart (home)
 async function loadDashboard() {
   const countRes = await fetch(`${API_URL}/critical/count`);
   const { critical_patient_count } = await countRes.json();
@@ -10,90 +10,65 @@ async function loadDashboard() {
   const normalCount = patients.length - critical_patient_count;
 
   // Pie chart
-  const ctx = document.getElementById("patientsChart").getContext("2d");
-  new Chart(ctx, {
-    type: "pie",
-    data: {
-      labels: ["Critical", "Normal"],
-      datasets: [{
-        data: [critical_patient_count, normalCount],
-        backgroundColor: ["#dc3545", "#198754"]
-      }]
-    }
-  });
+  const ctx = document.getElementById("patientsChart")?.getContext("2d");
+  if (ctx) {
+    new Chart(ctx, {
+      type: "pie",
+      data: {
+        labels: ["Critical", "Normal"],
+        datasets: [{
+          data: [critical_patient_count, normalCount],
+          backgroundColor: ["#dc3545", "#198754"]
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+  }
+
 
   // Critical patients table
   const tableBody = document.querySelector("#criticalPatientsTable tbody");
-  const critRes = await fetch(`${API_URL}/critical/patients`);
-  const { critical_patients } = await critRes.json();
+  if (tableBody) {
+    const critRes = await fetch(`${API_URL}/critical/patients`);
+    const { critical_patients } = await critRes.json();
 
-  tableBody.innerHTML = "";
-  critical_patients.forEach(cp => {
-    const row = document.createElement("tr");
-    row.innerHTML = `
-      <td>${cp.patient.mrn}</td>
-      <td>${cp.patient.first_name} ${cp.patient.last_name}</td>
-      <td>${cp.patient.age}</td>
-      <td>${cp.patient.gender}</td>
-      <td>${cp.alerts.join(", ")}</td>
-      <td>
-        <button class="btn btn-sm btn-primary" onclick="viewPatient(${cp.patient.patient_id})">View</button>
-        <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
-      </td>
-    `;
-    tableBody.appendChild(row);
-  });
+    tableBody.innerHTML = "";
+    critical_patients.forEach(cp => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${cp.patient.mrn}</td>
+        <td>${cp.patient.first_name} ${cp.patient.last_name}</td>
+        <td>${cp.patient.age}</td>
+        <td>${cp.patient.gender}</td>
+        <td>${cp.alerts.join(", ")}</td>
+        <td>
+          <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">Full</button>
+          <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
+        </td>
+      `;
+      tableBody.appendChild(row);
+    });
+  }
 }
 
-async function loadPatientSummary(patientId) {
-  const res = await fetch(`${API_URL}/pipeline/simple/${patientId}`);
-  const data = await res.json();
-
-  document.getElementById("pipelineOutput").innerHTML = `
-    <h4>Summary View</h4>
-    <div class="card p-3 mb-3">
-      <h5>${data.patient.name}</h5>
-      <p><strong>DOB:</strong> ${data.patient.dob}</p>
-      <p><strong>Gender:</strong> ${data.patient.gender}</p>
-    </div>
-    <div class="card p-3 mb-3">
-      <h6>Conditions</h6>
-      <ul>${data.conditions.map(c => `<li>${c}</li>`).join("")}</ul>
-    </div>
-    <div class="card p-3 mb-3">
-      <h6>Medications</h6>
-      <ul>${data.medications.map(m => `<li><strong>${m.medication}</strong> – ${m.instructions}</li>`).join("")}</ul>
-    </div>
-    <div class="card p-3 mb-3">
-      <h6>Vitals</h6>
-      <ul>
-        ${Object.entries(data.vitals).map(([k,v]) => `<li><strong>${k}:</strong> ${v}</li>`).join("")}
-      </ul>
-    </div>
-    <div class="card p-3">
-      <h6>Alerts</h6>
-      <ul>${data.alerts.map(a => `<li class="text-danger">${a}</li>`).join("")}</ul>
-    </div>
-  `;
-}
-
-// Show all patients in a proper table with header/footer
+// All patients list (aligned table + header/footer)
 async function showAllPatients() {
   const res = await fetch(`${API_URL}/patients`);
   const patients = await res.json();
 
   document.body.innerHTML = `
-    <!-- Navbar -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container-fluid">
         <a class="navbar-brand" href="index.html">Triage Dashboard</a>
         <div class="d-flex">
-          <a href="index.html" class="btn btn-light">← Back</a>
+          <a href="index.html" class="btn btn-light btn-sm">← Back</a>
         </div>
       </div>
     </nav>
 
-    <!-- Main Container -->
     <div class="container mt-4">
       <h3>All Patients</h3>
       <table class="table table-striped table-hover">
@@ -101,7 +76,7 @@ async function showAllPatients() {
           <tr>
             <th>MRN</th>
             <th>Name</th>
-            <th>Actions</th>
+            <th class="text-end">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -109,7 +84,7 @@ async function showAllPatients() {
             <tr>
               <td>${p.mrn}</td>
               <td>${p.first_name} ${p.last_name}</td>
-              <td>
+              <td class="text-end">
                 <button class="btn btn-sm btn-success me-2" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
                 <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">Full</button>
               </td>
@@ -119,57 +94,146 @@ async function showAllPatients() {
       </table>
     </div>
 
-    <!-- Footer -->
     <footer class="bg-light text-center py-3 mt-4">
       <p class="mb-0">&copy; 2025 AI-Powered Triage System</p>
     </footer>
   `;
 }
 
-
-// Redirect helpers
+// Navigate helpers
 function viewPatient(patientId) {
   window.location.href = `patient.html?id=${patientId}&mode=full`;
 }
-
 function viewPatientSummary(patientId) {
   window.location.href = `patient.html?id=${patientId}&mode=summary`;
 }
 
-// On patient details page
+// Patient page loader
 async function loadPatientDetails() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
-  const mode = params.get("mode") || "full"; // default = full
-
+  const mode = params.get("mode") || "summary"; // default to summary for nurses
   if (!id) return;
 
+  // Set navbar shortcuts (Summary / Full)
+  const summaryLink = document.getElementById("summaryNav");
+  const fullLink = document.getElementById("fullNav");
+  if (summaryLink) summaryLink.setAttribute("href", `patient.html?id=${id}&mode=summary`);
+  if (fullLink) fullLink.setAttribute("href", `patient.html?id=${id}&mode=full`);
+
+  // Patient header (always shown)
   const res = await fetch(`${API_URL}/patient/${id}`);
   const patient = await res.json();
-
-  document.getElementById("patientName").innerText = `${patient.first_name} ${patient.last_name} (MRN: ${patient.mrn})`;
-
-  document.getElementById("patientDetails").innerHTML = `
-    <strong>Age:</strong> ${patient.age} <br/>
-    <strong>Gender:</strong> ${patient.gender} <br/>
-    <strong>Race:</strong> ${patient.race} <br/>
-  `;
+  if (document.getElementById("patientName")) {
+    document.getElementById("patientName").innerText =
+      `${patient.first_name} ${patient.last_name} (MRN: ${patient.mrn})`;
+  }
+  if (document.getElementById("patientDetails")) {
+    document.getElementById("patientDetails").innerHTML = `
+      <div class="row row-cols-2 row-cols-md-4 g-2">
+        <div class="col"><div><strong>Age:</strong><br>${patient.age}</div></div>
+        <div class="col"><div><strong>Gender:</strong><br>${patient.gender}</div></div>
+        <div class="col"><div><strong>Race:</strong><br>${patient.race}</div></div>
+        <div class="col d-none d-md-block"><div class="subtle"><strong>MRN:</strong><br>${patient.mrn}</div></div>
+      </div>
+    `;
+  }
 
   if (mode === "summary") {
     await loadPatientSummary(id);
   } else {
     const pipeRes = await fetch(`${API_URL}/pipeline/${id}`);
     const data = await pipeRes.json();
-
     document.getElementById("pipelineOutput").innerHTML = `
-      <h4>Pipeline Output</h4>
-      <pre>${JSON.stringify(data.bundle, null, 2)}</pre>
-      <h5>Alerts</h5>
-      <pre>${JSON.stringify(data.cds, null, 2)}</pre>
+      <div class="card p-3">
+        <h5 class="mb-3">Pipeline Output</h5>
+        <pre class="mb-3" style="white-space: pre-wrap;">${JSON.stringify(data.bundle, null, 2)}</pre>
+        <h6 class="mb-2">Alerts</h6>
+        <pre class="mb-0" style="white-space: pre-wrap;">${JSON.stringify(data.cds, null, 2)}</pre>
+      </div>
     `;
   }
 }
 
-// Auto-load
+// Nurse-friendly summary (horizontal cards)
+async function loadPatientSummary(patientId) {
+  const res = await fetch(`${API_URL}/pipeline/simple/${patientId}`);
+  const data = await res.json();
+
+  // Fallbacks
+  const conditions = (data.conditions && data.conditions.length) ? data.conditions : ["None documented"];
+  const meds = (data.medications && data.medications.length) ? data.medications : [];
+  const vitals = data.vitals || {};
+  const alerts = data.alerts || [];
+
+  document.getElementById("pipelineOutput").innerHTML = `
+    <div class="card p-3 mb-3">
+      <h5 class="mb-3">Summary View <span class="badge rounded-pill text-bg-danger pill-badge ms-2">${alerts.filter(a => a !== "No critical alerts").length}</span></h5>
+      <div class="card p-3 mb-2">
+        <h6 class="mb-1">${data.patient.name}</h6>
+        <div><strong>DOB:</strong> ${data.patient.dob || "-"}</div>
+        <div><strong>Gender:</strong> ${data.patient.gender || "-"}</div>
+      </div>
+
+      <div class="row row-cols-1 row-cols-lg-3 g-3">
+        <!-- Conditions -->
+        <div class="col">
+          <div class="card h-100">
+            <div class="card-body scroll-card">
+              <h6>Conditions</h6>
+              <ul class="mb-0">
+                ${conditions.map(c => `<li>${c}</li>`).join("")}
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- Medications -->
+        <div class="col">
+          <div class="card h-100">
+            <div class="card-body scroll-card">
+              <h6>Medications</h6>
+              ${
+                meds.length
+                ? `<ul class="mb-0">${meds.map(m => `<li><strong>${m.medication}</strong> – ${m.instructions}</li>`).join("")}</ul>`
+                : `<div class="subtle">None documented</div>`
+              }
+            </div>
+          </div>
+        </div>
+
+        <!-- Vitals -->
+        <div class="col">
+          <div class="card h-100">
+            <div class="card-body scroll-card">
+              <h6>Vitals</h6>
+              <ul class="mb-0">
+                ${vitals.blood_pressure ? `<li><strong>Blood Pressure:</strong> ${vitals.blood_pressure}</li>` : ""}
+                ${vitals.bmi ? `<li><strong>BMI:</strong> ${vitals.bmi}</li>` : ""}
+                ${(!vitals.blood_pressure && !vitals.bmi) ? `<li class="subtle">No vitals found</li>` : ""}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="card mt-3">
+        <div class="card-body">
+          <h6 class="mb-2">Alerts</h6>
+          <ul class="mb-0">
+            ${
+              alerts.length
+                ? alerts.map(a => `<li class="${a === "No critical alerts" ? "subtle" : "text-danger"}">${a}</li>`).join("")
+                : `<li class="subtle">No alerts</li>`
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Auto-load where applicable
 if (document.getElementById("patientsChart")) loadDashboard();
 if (document.getElementById("patientDetails")) loadPatientDetails();
