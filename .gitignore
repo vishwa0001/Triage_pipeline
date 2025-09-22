@@ -1,0 +1,3 @@
+# Ignore all mock data inside backend/app/mock_data
+backend/app/mock_data/*
+!backend/app/mock_data/.gitkeep
