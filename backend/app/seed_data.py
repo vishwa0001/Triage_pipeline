@@ -3,7 +3,7 @@ from .db import patients_collection
 
 def seed_patients():
     if patients_collection.count_documents({}) == 0:
-        with open("/app/mock_data/mock_emr_patients.csv") as f:
+        with open("/mock_data/mock_emr_patients.csv") as f:
             reader = csv.DictReader(f)
             patients = [row for row in reader]
             for p in patients:
