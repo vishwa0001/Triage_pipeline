@@ -5,58 +5,241 @@
   <title>AI-Powered Triage Integration</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .main-container {
+      min-height: calc(100vh - 120px);
+    }
+    
+    .tab-pills {
+      border-radius: 25px;
+      overflow: hidden;
+    }
+    
+    .nav-pills .nav-link {
+      border-radius: 20px;
+      margin-right: 5px;
+      font-weight: 500;
+    }
+    
+    .nav-pills .nav-link.active {
+      background-color: #007bff;
+      color: white;
+    }
+    
+    .patients-overview {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-radius: 15px;
+      padding: 20px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .chart-container {
+      position: relative;
+      height: 200px;
+      width: 200px;
+      margin: 0 auto;
+    }
+    
+    .table-dark-custom {
+      background-color: #2c3e50;
+      color: white;
+    }
+    
+    .alert-badge {
+      font-size: 0.75rem;
+      padding: 4px 8px;
+      border-radius: 12px;
+      margin: 2px;
+      display: inline-block;
+    }
+    
+    .alert-critical {
+      background-color: #ffebee;
+      color: #c62828;
+      border: 1px solid #ffcdd2;
+    }
+    
+    .alert-warning {
+      background-color: #fff3e0;
+      color: #ef6c00;
+      border: 1px solid #ffcc02;
+    }
+    
+    .alert-info {
+      background-color: #e3f2fd;
+      color: #1976d2;
+      border: 1px solid #bbdefb;
+    }
+    
+    .view-summary-btn {
+      background-color: #28a745;
+      border: none;
+      border-radius: 20px;
+      padding: 8px 20px;
+      color: white;
+      font-weight: 500;
+    }
+    
+    .view-summary-btn:hover {
+      background-color: #218838;
+      color: white;
+    }
+  </style>
 </head>
 <body class="bg-light">
 
-  <!-- Navbar -->
-  <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+  <!-- Header -->
+  <nav class="navbar navbar-expand-lg navbar-dark bg-primary shadow-sm">
     <div class="container-fluid">
-      <a class="navbar-brand" href="#">Triage Dashboard</a>
-      <div class="d-flex">
-        <button class="btn btn-light" onclick="showAllPatients()">All Patients</button>
+      <a class="navbar-brand fw-bold" href="#">
+        <i class="fas fa-hospital me-2"></i>
+        AI-Powered Triage System
+      </a>
+      <div class="navbar-nav ms-auto">
+        <span class="navbar-text text-light">
+          Real-time Patient Monitoring Dashboard
+        </span>
       </div>
     </div>
   </nav>
 
   <!-- Main Container -->
-  <div class="container mt-4">
-    <!-- Pie Chart -->
-    <div class="row mb-4">
-      <div class="d-flex justify-content-center">
-        <div style="width:300px; height:300px;">
-          <canvas id="patientsChart"></canvas>
+  <div class="container-fluid main-container py-4">
+    <div class="row">
+      <div class="col-lg-9">
+        <!-- Tab Navigation -->
+        <ul class="nav nav-pills mb-4 tab-pills" id="patientTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="all-tab" data-bs-toggle="pill" data-bs-target="#all-patients" type="button" role="tab" onclick="showAllPatientsTab()">
+              All patients
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="critical-tab" data-bs-toggle="pill" data-bs-target="#critical-patients" type="button" role="tab" onclick="showCriticalPatientsTab()">
+              Critical patients
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="normal-tab" data-bs-toggle="pill" data-bs-target="#normal-patients" type="button" role="tab" onclick="showNormalPatientsTab()">
+              Non-critical patients
+            </button>
+          </li>
+        </ul>
+
+        <!-- Tab Content -->
+        <div class="tab-content" id="patientTabsContent">
+          <!-- All Patients Tab -->
+          <div class="tab-pane fade" id="all-patients" role="tabpanel">
+            <h4 class="mb-3">All Patients</h4>
+            <div class="table-responsive">
+              <table class="table table-hover table-striped">
+                <thead class="table-dark-custom">
+                  <tr>
+                    <th>MRN</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="allPatientsTableBody">
+                  <!-- Content loaded by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+            <div id="allPatientsPager" class="d-flex justify-content-between align-items-center mt-3"></div>
+          </div>
+
+          <!-- Critical Patients Tab -->
+          <div class="tab-pane fade show active" id="critical-patients" role="tabpanel">
+            <h4 class="mb-3">Critical Patients</h4>
+            <div class="table-responsive">
+              <table class="table table-hover table-striped">
+                <thead class="table-dark-custom">
+                  <tr>
+                    <th>MRN</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Alerts</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="criticalPatientsTableBody">
+                  <!-- Content loaded by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+            <div id="criticalPatientsPager" class="d-flex justify-content-between align-items-center mt-3"></div>
+          </div>
+
+          <!-- Normal Patients Tab -->
+          <div class="tab-pane fade" id="normal-patients" role="tabpanel">
+            <h4 class="mb-3">Non-critical Patients</h4>
+            <div class="table-responsive">
+              <table class="table table-hover table-striped">
+                <thead class="table-dark-custom">
+                  <tr>
+                    <th>MRN</th>
+                    <th>Name</th>
+                    <th>Age</th>
+                    <th>Gender</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="normalPatientsTableBody">
+                  <!-- Content loaded by JavaScript -->
+                </tbody>
+              </table>
+            </div>
+            <div id="normalPatientsPager" class="d-flex justify-content-between align-items-center mt-3"></div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Critical Patients Table -->
-    <div class="row">
-      <div class="col">
-        <h3>Critical Patients</h3>
-        <table class="table table-striped table-hover" id="criticalPatientsTable">
-          <thead class="table-dark">
-            <tr>
-              <th>MRN</th>
-              <th>Name</th>
-              <th>Age</th>
-              <th>Gender</th>
-              <th>Alerts</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <!-- Pagination controls -->
-        <div id="critPager" class="d-flex justify-content-between align-items-center mt-2"></div>
+      <!-- Patients Overview Sidebar -->
+      <div class="col-lg-3">
+        <div class="patients-overview">
+          <h5 class="text-center mb-3">Patients Overview</h5>
+          <div class="chart-container">
+            <canvas id="patientsChart"></canvas>
+          </div>
+          <div class="text-center mt-3">
+            <div class="row">
+              <div class="col-6">
+                <div class="text-danger fw-bold fs-4" id="criticalCount">-</div>
+                <small class="text-muted">Critical</small>
+              </div>
+              <div class="col-6">
+                <div class="text-success fw-bold fs-4" id="normalCount">-</div>
+                <small class="text-muted">Normal</small>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Footer -->
-  <footer class="bg-light text-center py-3 mt-4">
-    <p class="mb-0">&copy; 2025 AI-Powered Triage System</p>
+  <footer class="bg-dark text-white text-center py-4 mt-5">
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6 text-start">
+          <h6>AI-Powered Triage System</h6>
+          <p class="mb-0 small">Enhancing healthcare with intelligent patient monitoring</p>
+        </div>
+        <div class="col-md-6 text-end">
+          <p class="mb-0">&copy; 2025 Healthcare Innovation Labs</p>
+          <p class="mb-0 small">Powered by Advanced AI Technology</p>
+        </div>
+      </div>
+    </div>
   </footer>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

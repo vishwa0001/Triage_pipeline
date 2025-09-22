@@ -120,3 +120,71 @@ def run_pipeline_simple(patient_id: int):
         "vitals": vitals,
         "alerts": cds.get("alerts", []),
     }
+
+
+def build_patient_overview_item(p: dict) -> dict:
+    """
+    Returns a compact, nurse-friendly overview item:
+    - patient (mrn, name, age, gender, patient_id)
+    - status ('critical' | 'normal')
+    - alerts (list[str])  # from CDS, can include warnings/info
+    """
+    pid = p["patient_id"]
+    # Build CDS once so lists can render alert badges consistently
+    bundle = mock_ocr_pipeline(pid)
+    cds = mock_cds(bundle) if "error" not in bundle else {}
+    alerts = cds.get("alerts", []) or []
+    status = "critical" if has_critical_alerts(pid) else "normal"
+
+    return {
+        "patient": {
+            "patient_id": pid,
+            "mrn": p.get("mrn"),
+            "first_name": p.get("first_name"),
+            "last_name": p.get("last_name"),
+            "age": p.get("age"),
+            "gender": p.get("gender"),
+        },
+        "status": status,
+        "alerts": alerts,
+    }
+
+@router.get("/patients/overview")
+def get_patients_overview(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+):
+    """
+    Paginated 'all patients' list WITH server-computed status and CDS alerts.
+    """
+    skip = (page - 1) * page_size
+    total = patients_collection.count_documents({})
+    raw_items = list(
+        patients_collection.find({}, {"_id": 0}).skip(skip).limit(page_size)
+    )
+
+    items = [build_patient_overview_item(p) for p in raw_items]
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+@router.get("/normal/patients")
+def get_normal_patients(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+):
+    """
+    Paginated list of NON-CRITICAL patients. Each item includes patient + alerts.
+    """
+    # Pull all (the cohort is small in this mock; in production, do two-pass with skip/limit)
+    all_patients = list(patients_collection.find({}, {"_id": 0}))
+    normal_all = []
+    for p in all_patients:
+        if not has_critical_alerts(p["patient_id"]):
+            normal_all.append(build_patient_overview_item(p))
+
+    total = len(normal_all)
+    start = (page - 1) * page_size
+    end = start + page_size
+    items = normal_all[start:end]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+

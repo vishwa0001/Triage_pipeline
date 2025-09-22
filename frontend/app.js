@@ -7,6 +7,9 @@ const critPageSize = 5;
 let allPage = 1;
 const allPageSize = 10;
 
+let normalPage = 1;
+const normalPageSize = 10;
+
 function renderPager(el, { page, pageSize, total }, onChange) {
   if (!el) return;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -57,34 +60,34 @@ function classifySeverity(text) {
   return "info";
 }
 
-// Bootstrap subtle badge styling
-function badgeClass(severity) {
+// Custom alert badge styling
+function alertBadgeClass(severity) {
   switch (severity) {
     case "critical":
-      return "badge rounded-pill bg-danger-subtle text-danger border border-danger-subtle fw-semibold";
+      return "alert-badge alert-critical";
     case "warning":
-      return "badge rounded-pill bg-warning-subtle text-warning border border-warning-subtle fw-semibold";
+      return "alert-badge alert-warning";
     case "info":
-      return "badge rounded-pill bg-info-subtle text-info border border-info-subtle fw-semibold";
+      return "alert-badge alert-info";
     default:
-      return "badge rounded-pill bg-secondary-subtle text-secondary border border-secondary-subtle";
+      return "alert-badge alert-info";
   }
 }
 
 // Render ALL alerts as badges (no collapsing)
 function renderAlertBadges(alerts) {
   if (!alerts || !alerts.length) {
-    return `<span class="${badgeClass("none")}">No alerts</span>`;
+    return `<span class="alert-badge alert-info">No alerts</span>`;
   }
   return alerts
     .map(a => {
       const sev = classifySeverity(a);
-      return `<span class="${badgeClass(sev)} me-1 mb-1">${a}</span>`;
+      return `<span class="${alertBadgeClass(sev)}">${a}</span>`;
     })
     .join(" ");
 }
 
-// Summary/Full navbar controls
+// Summary/Full navbar controls for patient page
 function wireNavModeLinks(id) {
   const go = (mode) =>
     `patient.html?id=${encodeURIComponent(id)}&mode=${encodeURIComponent(mode)}`;
@@ -115,36 +118,64 @@ async function loadDashboard() {
   const { critical_patient_count } = await critCountRes.json();
   const normalCount = total - critical_patient_count;
 
+  // Update count displays
+  document.getElementById("criticalCount").textContent = critical_patient_count;
+  document.getElementById("normalCount").textContent = normalCount;
+
   // Pie chart
   const ctx = document.getElementById("patientsChart")?.getContext("2d");
   if (ctx) {
     new Chart(ctx, {
-      type: "pie",
+      type: "doughnut",
       data: {
         labels: ["Critical", "Normal"],
         datasets: [{
           data: [critical_patient_count, normalCount],
-          backgroundColor: ["#dc3545", "#198754"]
+          backgroundColor: ["#dc3545", "#28a745"],
+          borderWidth: 0
         }]
       },
       options: {
         responsive: true,
-        maintainAspectRatio: false
+        maintainAspectRatio: true,
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        cutout: '60%'
       }
     });
   }
 
+  // Load initial critical patients data
   await loadCriticalPatientsPage(critPage);
 }
 
+/* ---------- TAB FUNCTIONS ---------- */
+
+async function showAllPatientsTab() {
+  await loadAllPatientsPage(allPage);
+}
+
+async function showCriticalPatientsTab() {
+  await loadCriticalPatientsPage(critPage);
+}
+
+async function showNormalPatientsTab() {
+  await loadNormalPatientsPage(normalPage);
+}
+
+/* ---------- CRITICAL PATIENTS ---------- */
+
 async function loadCriticalPatientsPage(page) {
   critPage = page;
-  const tableBody = document.querySelector("#criticalPatientsTable tbody");
-  const pagerEl = document.getElementById("critPager");
+  const tableBody = document.getElementById("criticalPatientsTableBody");
+  const pagerEl = document.getElementById("criticalPatientsPager");
   if (!tableBody || !pagerEl) return;
 
   const res = await fetch(`${API_URL}/critical/patients?page=${critPage}&page_size=${critPageSize}`);
-  const data = await res.json(); // { items, total, page, page_size }
+  const data = await res.json();
 
   tableBody.innerHTML = "";
   data.items.forEach(cp => {
@@ -152,16 +183,17 @@ async function loadCriticalPatientsPage(page) {
 
     const row = document.createElement("tr");
     row.innerHTML = `
-      <td>${cp.patient.mrn}</td>
+      <td class="fw-semibold">${cp.patient.mrn}</td>
       <td>${cp.patient.first_name} ${cp.patient.last_name}</td>
       <td>${cp.patient.age}</td>
       <td>${cp.patient.gender}</td>
-      <td style="max-width:380px; white-space:normal;">
-        <div class="d-flex flex-wrap gap-1">${alertsBlock}</div>
+      <td style="max-width:400px;">
+        <div class="d-flex flex-wrap">${alertsBlock}</div>
       </td>
-      <td class="text-nowrap">
-        <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">All Details</button>
-        <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
+      <td>
+        <button class="btn view-summary-btn btn-sm" onclick="viewPatientSummary(${cp.patient.patient_id})">
+          View summary
+        </button>
       </td>
     `;
     tableBody.appendChild(row);
@@ -172,72 +204,84 @@ async function loadCriticalPatientsPage(page) {
   });
 }
 
-/* ---------- ALL PATIENTS LIST ---------- */
-
-async function showAllPatients() {
-  document.body.innerHTML = `
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-      <div class="container-fluid">
-        <a class="navbar-brand" href="index.html">Triage Dashboard</a>
-        <div class="d-flex">
-          <a href="index.html" class="btn btn-light btn-sm">← Back</a>
-        </div>
-      </div>
-    </nav>
-
-    <div class="container mt-4">
-      <div class="d-flex justify-content-between align-items-center">
-        <h3 class="mb-0">All Patients</h3>
-        <div id="allPatientsPager"></div>
-      </div>
-
-      <table class="table table-striped table-hover mt-3">
-        <thead class="table-dark">
-          <tr>
-            <th>MRN</th>
-            <th>Name</th>
-            <th class="text-end">Actions</th>
-          </tr>
-        </thead>
-        <tbody id="allPatientsTableBody"></tbody>
-      </table>
-
-      <div id="allPatientsPagerBottom" class="d-flex justify-content-between align-items-center"></div>
-    </div>
-
-    <footer class="bg-light text-center py-3 mt-4">
-      <p class="mb-0">&copy; 2025 AI-Powered Triage System</p>
-    </footer>
-  `;
-
-  await loadAllPatientsPage(allPage);
-}
-
+/* ---------- ALL PATIENTS TAB ---------- */
 async function loadAllPatientsPage(page) {
   allPage = page;
-  const body = document.getElementById("allPatientsTableBody");
-  const pagerTop = document.getElementById("allPatientsPager");
-  const pagerBottom = document.getElementById("allPatientsPagerBottom");
+  const tableBody = document.getElementById("allPatientsTableBody");
+  const pagerEl = document.getElementById("allPatientsPager");
+  if (!tableBody || !pagerEl) return;
 
-  const res = await fetch(`${API_URL}/patients?page=${allPage}&page_size=${allPageSize}`);
-  const data = await res.json(); // { items, total, page, page_size }
+  const res = await fetch(`${API_URL}/patients/overview?page=${allPage}&page_size=${allPageSize}`);
+  const data = await res.json();
 
-  body.innerHTML = data.items.map(p => `
-    <tr>
-      <td>${p.mrn}</td>
+  tableBody.innerHTML = "";
+  data.items.forEach(item => {
+    const p = item.patient;
+    const isCritical = item.status === "critical";
+    const statusBadge = isCritical
+      ? '<span class="badge bg-danger">Critical</span>'
+      : '<span class="badge bg-success">Normal</span>';
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="fw-semibold">${p.mrn}</td>
       <td>${p.first_name} ${p.last_name}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-success me-2" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
-        <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">All Details</button>
+      <td>${p.age}</td>
+      <td>${p.gender}</td>
+      <td>${statusBadge}</td>
+      <td>
+        <button class="btn view-summary-btn btn-sm" onclick="viewPatientSummary(${p.patient_id})">
+          View summary
+        </button>
       </td>
-    </tr>
-  `).join("");
+    `;
+    tableBody.appendChild(row);
+  });
 
-  const meta = { page: data.page, pageSize: data.page_size, total: data.total };
-  const onChange = (newPage) => loadAllPatientsPage(newPage);
-  renderPager(pagerTop, meta, onChange);
-  renderPager(pagerBottom, meta, onChange);
+  renderPager(
+    pagerEl,
+    { page: data.page, pageSize: data.page_size, total: data.total },
+    (newPage) => loadAllPatientsPage(newPage)
+  );
 }
+
+
+/* ---------- NORMAL PATIENTS TAB ---------- */
+async function loadNormalPatientsPage(page) {
+  normalPage = page;
+  const tableBody = document.getElementById("normalPatientsTableBody");
+  const pagerEl = document.getElementById("normalPatientsPager");
+  if (!tableBody || !pagerEl) return;
+
+  const res = await fetch(`${API_URL}/normal/patients?page=${normalPage}&page_size=${normalPageSize}`);
+  const data = await res.json();
+
+  tableBody.innerHTML = "";
+  data.items.forEach(item => {
+    const p = item.patient;
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td class="fw-semibold">${p.mrn}</td>
+      <td>${p.first_name} ${p.last_name}</td>
+      <td>${p.age}</td>
+      <td>${p.gender}</td>
+      <td><span class="badge bg-success">Normal</span></td>
+      <td>
+        <button class="btn view-summary-btn btn-sm" onclick="viewPatientSummary(${p.patient_id})">
+          View summary
+        </button>
+      </td>
+    `;
+    tableBody.appendChild(row);
+  });
+
+  renderPager(
+    pagerEl,
+    { page: data.page, pageSize: data.page_size, total: data.total },
+    (newPage) => loadNormalPatientsPage(newPage)
+  );
+}
+
 
 /* ---------- NAV HELPERS ---------- */
 
@@ -302,25 +346,35 @@ async function loadPatientSummary(patientId) {
   const meds = (data.medications && data.medications.length) ? data.medications : [];
   const vitals = data.vitals || {};
   const alerts = data.alerts || [];
-
   const alertsBlock = renderAlertBadges(alerts);
 
   document.getElementById("pipelineOutput").innerHTML = `
     <div class="card p-3 mb-3">
-      <h5 class="mb-3">Summary View</h5>
 
-      <!-- Patient Header with Alerts -->
+      <!-- ✅ Summary View heading + legend on SAME line -->
+      <div class="d-flex align-items-center justify-content-between flex-wrap mb-2">
+        <h5 class="mb-2 mb-md-0">Summary View</h5>
+        <div class="d-flex align-items-center gap-3">
+          <span><span class="legend-dot legend-critical"></span>High</span>
+          <span><span class="legend-dot legend-warning"></span>Medium</span>
+          <span><span class="legend-dot legend-info"></span>Low</span>
+        </div>
+      </div>
+
+      <!-- Patient block -->
       <div class="card p-3 mb-2">
         <h6 class="mb-1">${data.patient.name}</h6>
         <div><strong>DOB:</strong> ${data.patient.dob || "-"}</div>
         <div><strong>Gender:</strong> ${data.patient.gender || "-"}</div>
-        <div class="mt-2 d-flex flex-wrap gap-1">
-          <strong class="me-2">Alerts:</strong> ${alertsBlock}
+
+        <!-- ✅ Alerts inline with the label -->
+        <div class="alerts-inline mt-2">
+          <span class="alerts-label">Alerts:</span>
+          <div class="alerts-list">${alertsBlock}</div>
         </div>
       </div>
 
       <div class="row row-cols-1 row-cols-lg-3 g-3">
-        <!-- Conditions -->
         <div class="col">
           <div class="card h-100">
             <div class="card-body">
@@ -332,7 +386,6 @@ async function loadPatientSummary(patientId) {
           </div>
         </div>
 
-        <!-- Medications -->
         <div class="col">
           <div class="card h-100">
             <div class="card-body">
@@ -341,14 +394,13 @@ async function loadPatientSummary(patientId) {
                 meds.length
                   ? `<ul class="mb-0">
                       ${meds.map(m => `<li><strong>${m.medication}</strong> &ndash; ${m.instructions}</li>`).join("")}
-                     </ul>`
+                    </ul>`
                   : `<div class="text-muted">None documented</div>`
               }
             </div>
           </div>
         </div>
 
-        <!-- Vitals -->
         <div class="col">
           <div class="card h-100">
             <div class="card-body">
@@ -365,6 +417,7 @@ async function loadPatientSummary(patientId) {
     </div>
   `;
 }
+
 
 /* ---------- AUTO LOAD ---------- */
 

@@ -30,6 +30,40 @@
     .pill-badge {
       font-size: .8rem;
     }
+    /* Zebra striping: subtle gray + white */
+    .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: #f5f7fb !important; /* slightly darker */
+    }
+    .table-striped > tbody > tr:nth-of-type(even) > * {
+    background-color: #ffffff !important; /* white */
+    }
+
+    /* Keep header dark style intact (you already use .table-dark-custom) */
+
+    /* Nice hover effect */
+    .table-hover > tbody > tr:hover > * {
+    background-color: #eef5ff !important; /* gentle blue tint on hover */
+    transition: background-color .15s ease-in-out;
+    }
+
+     /* Alert pills (unchanged look) */
+    .alert-badge{font-size:.78rem;padding:6px 10px;border-radius:999px;margin:4px 6px 0 0;display:inline-flex;align-items:center;line-height:1.1}
+    .alert-critical{background:#ffebee;color:#c62828;border:1px solid #ffcdd2}
+    .alert-warning{background:#fff3e0;color:#ef6c00;border:1px solid #ffcc80}
+    .alert-info{background:#e3f2fd;color:#1976d2;border:1px solid #bbdefb}
+
+    /* ✅ Alerts inline with label */
+    .alerts-inline{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+    .alerts-inline .alerts-label{font-weight:600}
+    .alerts-inline .alerts-list{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 auto}
+
+    /* Legend dots */
+    .legend-dot{display:inline-block;width:16px;height:16px;border-radius:4px;margin-right:8px;vertical-align:middle}
+    .legend-critical{background:#c62828;opacity:.9}
+    .legend-warning{background:#ef6c00;opacity:.9}
+    .legend-info{background:#1976d2;opacity:.9}
+
+
   </style>
 </head>
 <body class="bg-light">
@@ -39,8 +73,6 @@
     <div class="container-fluid">
       <a class="navbar-brand" href="index.html">Triage Dashboard</a>
       <div class="ms-auto d-flex gap-2">
-        <a id="summaryNav" class="btn btn-outline-light btn-sm">Summary</a>
-        <a id="fullNav" class="btn btn-light btn-sm">All Details</a>
         <a href="index.html" class="btn btn-outline-light btn-sm">← Back</a>
       </div>
     </div>
@@ -64,6 +96,22 @@
     <footer class="bg-light text-center py-3">
       <p class="mb-0">&copy; 2025 AI-Powered Triage System</p>
     </footer>
+
+      <!-- <footer class="bg-dark text-white text-center py-4 mt-5">
+            <div class="container">
+            <div class="row">
+                <div class="col-md-6 text-start">
+                <h6>AI-Powered Triage System</h6>
+                <p class="mb-0 small">Enhancing healthcare with intelligent patient monitoring</p>
+                </div>
+                <div class="col-md-6 text-end">
+                <p class="mb-0">&copy; 2025 Healthcare Innovation Labs</p>
+                <p class="mb-0 small">Powered by Advanced AI Technology</p>
+                </div>
+            </div>
+            </div>
+        </footer> -->
+
   </div>
 
   <script src="app.js"></script>
