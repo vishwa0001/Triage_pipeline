@@ -56,13 +56,15 @@ function renderAlertBadges(alerts) {
     .join(" ");
 }
 
-// Wire Summary/Full navbar controls for either <a> or <button>
+// Summary/Full navbar controls
 function wireNavModeLinks(id) {
   const go = (mode) =>
     `patient.html?id=${encodeURIComponent(id)}&mode=${encodeURIComponent(mode)}`;
 
-  const setLinkOrClick = (el, mode) => {
+  const setLinkOrClick = (el, mode, labelText) => {
     if (!el) return;
+    if (labelText) el.textContent = labelText;
+
     if (el.tagName === "A") {
       el.setAttribute("href", go(mode));
     } else {
@@ -70,9 +72,10 @@ function wireNavModeLinks(id) {
     }
   };
 
-  setLinkOrClick(document.getElementById("summaryNav"), "summary");
-  setLinkOrClick(document.getElementById("fullNav"), "full");
+  setLinkOrClick(document.getElementById("summaryNav"), "summary", "Summary");
+  setLinkOrClick(document.getElementById("fullNav"), "all_details", "All Details");
 }
+
 
 /* ---------- DASHBOARD ---------- */
 
@@ -123,7 +126,7 @@ async function loadDashboard() {
           <div class="d-flex flex-wrap gap-1">${alertsBlock}</div>
         </td>
         <td class="text-nowrap">
-          <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">Full</button>
+          <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">All Details</button>
           <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
         </td>
       `;
@@ -165,7 +168,7 @@ async function showAllPatients() {
               <td>${p.first_name} ${p.last_name}</td>
               <td class="text-end">
                 <button class="btn btn-sm btn-success me-2" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
-                <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">Full</button>
+                <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">All Details</button>
               </td>
             </tr>
           `).join("")}
@@ -182,7 +185,7 @@ async function showAllPatients() {
 /* ---------- NAV HELPERS ---------- */
 
 function viewPatient(patientId) {
-  window.location.href = `patient.html?id=${patientId}&mode=full`;
+  window.location.href = `patient.html?id=${patientId}&mode=all_details`;
 }
 function viewPatientSummary(patientId) {
   window.location.href = `patient.html?id=${patientId}&mode=summary`;

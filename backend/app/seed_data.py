@@ -19,6 +19,6 @@ def seed_fhir():
     if fhir_collection.count_documents({}) == 0:
         file_path = os.path.join(os.path.dirname(__file__), "mock_data", "mock_fhir_bundles.json")
         with open(file_path) as f:
-            bundles = json.load(f)   # this is a list
+            bundles = json.load(f)
             for bundle in bundles:
                 fhir_collection.insert_one(bundle)
