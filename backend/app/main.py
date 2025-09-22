@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from .routes import router as api_router
-from .seed_data import seed_patients
+from app.routes import router as api_router
+from app.seed_data import seed_patients
 
 app = FastAPI(title="Mock Triage Pipeline API", version="0.1")
 

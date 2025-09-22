@@ -1,6 +1,6 @@
 from fastapi import APIRouter
-from .db import patients_collection, fhir_collection
-from .services import mock_ocr_pipeline, mock_cds
+from app.db import patients_collection, fhir_collection
+from app.services import mock_ocr_pipeline, mock_cds
 
 router = APIRouter()
 
