@@ -1,0 +1,11 @@
+patient_id,mrn,first_name,last_name,dob,age,gender,race,height_cm,weight_kg,bmi,smoker
+1,M000001,Ben,Kim,1980-06-15,45,M,White,180,90,27.8,1
+2,M000002,Carmen,Martinez,1963-06-15,62,F,Black,165,72,26.4,0
+3,M000003,Diana,Lee,1987-06-15,38,F,Hispanic,155,54,22.5,0
+4,M000004,Ethan,Lopez,1970-06-15,55,M,Asian,172,83,28.1,1
+5,M000005,Farhan,Singh,1954-06-15,71,M,White,178,95,30.0,1
+6,M000006,Grace,Garcia,1997-06-15,28,F,White,163,58,21.8,0
+7,M000007,Hiro,Patel,1975-06-15,50,M,Black,185,102,29.8,0
+8,M000008,Irene,Johnson,1961-06-15,64,F,White,160,65,25.4,0
+9,M000009,Jamal,Brown,1983-06-15,42,M,Hispanic,175,80,26.1,0
+10,M000010,Alice,Stone,1966-06-15,59,F,Asian,158,60,24.0,0

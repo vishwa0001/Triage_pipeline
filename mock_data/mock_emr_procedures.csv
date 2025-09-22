@@ -1,0 +1,5 @@
+patient_id,procedure,procedure_date
+1,appendectomy,2024-09-22
+2,coronary artery bypass graft,2024-09-22
+5,percutaneous coronary intervention,2024-09-22
+8,coronary angioplasty,2024-09-22
