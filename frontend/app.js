@@ -77,23 +77,55 @@ async function loadPatientSummary(patientId) {
   `;
 }
 
-// Show all patients
+// Show all patients in a proper table with header/footer
 async function showAllPatients() {
   const res = await fetch(`${API_URL}/patients`);
   const patients = await res.json();
 
-  let html = "<h4>All Patients</h4><ul class='list-group'>";
-  patients.forEach(p => {
-    html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-      ${p.mrn} - ${p.first_name} ${p.last_name}
-      <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
-      <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">Full</button>
-    </li>`;
-  });
-  html += "</ul>";
+  document.body.innerHTML = `
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="index.html">Triage Dashboard</a>
+        <div class="d-flex">
+          <a href="index.html" class="btn btn-light">← Back</a>
+        </div>
+      </div>
+    </nav>
 
-  document.body.innerHTML = html;
+    <!-- Main Container -->
+    <div class="container mt-4">
+      <h3>All Patients</h3>
+      <table class="table table-striped table-hover">
+        <thead class="table-dark">
+          <tr>
+            <th>MRN</th>
+            <th>Name</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${patients.map(p => `
+            <tr>
+              <td>${p.mrn}</td>
+              <td>${p.first_name} ${p.last_name}</td>
+              <td>
+                <button class="btn btn-sm btn-success me-2" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
+                <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">Full</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-light text-center py-3 mt-4">
+      <p class="mb-0">&copy; 2025 AI-Powered Triage System</p>
+    </footer>
+  `;
 }
+
 
 // Redirect helpers
 function viewPatient(patientId) {
