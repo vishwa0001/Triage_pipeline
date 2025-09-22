@@ -36,13 +36,48 @@ async function loadDashboard() {
       <td>${cp.patient.age}</td>
       <td>${cp.patient.gender}</td>
       <td>${cp.alerts.join(", ")}</td>
-      <td><button class="btn btn-sm btn-primary" onclick="viewPatient(${cp.patient.patient_id})">View</button></td>
+      <td>
+        <button class="btn btn-sm btn-primary" onclick="viewPatient(${cp.patient.patient_id})">View</button>
+        <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
+      </td>
     `;
     tableBody.appendChild(row);
   });
 }
 
-// Show all patients in a modal-like list
+async function loadPatientSummary(patientId) {
+  const res = await fetch(`${API_URL}/pipeline/simple/${patientId}`);
+  const data = await res.json();
+
+  document.getElementById("pipelineOutput").innerHTML = `
+    <h4>Summary View</h4>
+    <div class="card p-3 mb-3">
+      <h5>${data.patient.name}</h5>
+      <p><strong>DOB:</strong> ${data.patient.dob}</p>
+      <p><strong>Gender:</strong> ${data.patient.gender}</p>
+    </div>
+    <div class="card p-3 mb-3">
+      <h6>Conditions</h6>
+      <ul>${data.conditions.map(c => `<li>${c}</li>`).join("")}</ul>
+    </div>
+    <div class="card p-3 mb-3">
+      <h6>Medications</h6>
+      <ul>${data.medications.map(m => `<li><strong>${m.medication}</strong> – ${m.instructions}</li>`).join("")}</ul>
+    </div>
+    <div class="card p-3 mb-3">
+      <h6>Vitals</h6>
+      <ul>
+        ${Object.entries(data.vitals).map(([k,v]) => `<li><strong>${k}:</strong> ${v}</li>`).join("")}
+      </ul>
+    </div>
+    <div class="card p-3">
+      <h6>Alerts</h6>
+      <ul>${data.alerts.map(a => `<li class="text-danger">${a}</li>`).join("")}</ul>
+    </div>
+  `;
+}
+
+// Show all patients
 async function showAllPatients() {
   const res = await fetch(`${API_URL}/patients`);
   const patients = await res.json();
@@ -51,7 +86,8 @@ async function showAllPatients() {
   patients.forEach(p => {
     html += `<li class="list-group-item d-flex justify-content-between align-items-center">
       ${p.mrn} - ${p.first_name} ${p.last_name}
-      <button class="btn btn-sm btn-success" onclick="runPipeline(${p.patient_id})">Run Pipeline</button>
+      <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
+      <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">Full</button>
     </li>`;
   });
   html += "</ul>";
@@ -59,20 +95,21 @@ async function showAllPatients() {
   document.body.innerHTML = html;
 }
 
-// Redirect to patient details page
+// Redirect helpers
 function viewPatient(patientId) {
-  window.location.href = `patient.html?id=${patientId}`;
+  window.location.href = `patient.html?id=${patientId}&mode=full`;
 }
 
-function runPipeline(patientId) {
-  // same as viewPatient: route to patient details page
-  window.location.href = `patient.html?id=${patientId}`;
+function viewPatientSummary(patientId) {
+  window.location.href = `patient.html?id=${patientId}&mode=summary`;
 }
 
 // On patient details page
 async function loadPatientDetails() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
+  const mode = params.get("mode") || "full"; // default = full
+
   if (!id) return;
 
   const res = await fetch(`${API_URL}/patient/${id}`);
@@ -86,17 +123,21 @@ async function loadPatientDetails() {
     <strong>Race:</strong> ${patient.race} <br/>
   `;
 
-  const pipeRes = await fetch(`${API_URL}/pipeline/${id}`);
-  const data = await pipeRes.json();
+  if (mode === "summary") {
+    await loadPatientSummary(id);
+  } else {
+    const pipeRes = await fetch(`${API_URL}/pipeline/${id}`);
+    const data = await pipeRes.json();
 
-  document.getElementById("pipelineOutput").innerHTML = `
-    <h4>Pipeline Output</h4>
-    <pre>${JSON.stringify(data.bundle, null, 2)}</pre>
-    <h5>Alerts</h5>
-    <pre>${JSON.stringify(data.cds, null, 2)}</pre>
-  `;
+    document.getElementById("pipelineOutput").innerHTML = `
+      <h4>Pipeline Output</h4>
+      <pre>${JSON.stringify(data.bundle, null, 2)}</pre>
+      <h5>Alerts</h5>
+      <pre>${JSON.stringify(data.cds, null, 2)}</pre>
+    `;
+  }
 }
 
-// Auto-load on homepage or details page
+// Auto-load
 if (document.getElementById("patientsChart")) loadDashboard();
 if (document.getElementById("patientDetails")) loadPatientDetails();

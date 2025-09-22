@@ -46,3 +46,57 @@ def get_critical_patients():
                 "alerts": alerts
             })
     return {"critical_patients": critical_patients}
+
+@router.get("/pipeline/simple/{patient_id}")
+def run_pipeline_simple(patient_id: int):
+    from app.services import mock_ocr_pipeline, mock_cds
+
+    bundle = mock_ocr_pipeline(patient_id)
+    if "error" in bundle:
+        return bundle
+
+    cds = mock_cds(bundle)
+
+    # Extract basic info
+    patient = next((e["resource"] for e in bundle["entry"] if e["resource"]["resourceType"] == "Patient"), None)
+    name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}" if patient else "Unknown"
+    gender = patient.get("gender") if patient else ""
+    birth_date = patient.get("birthDate") if patient else ""
+
+    # Extract conditions
+    conditions = [
+        e["resource"]["code"]["text"]
+        for e in bundle["entry"]
+        if e["resource"]["resourceType"] == "Condition"
+    ]
+
+    # Extract medications
+    medications = [
+        {
+            "medication": e["resource"]["medicationCodeableConcept"]["text"],
+            "instructions": e["resource"]["dosageInstruction"][0]["text"]
+        }
+        for e in bundle["entry"]
+        if e["resource"]["resourceType"] == "MedicationRequest"
+    ]
+
+    # Extract key vitals (bp, bmi, cholesterol)
+    vitals = {}
+    for e in bundle["entry"]:
+        res = e["resource"]
+        if res["resourceType"] == "Observation" and res["code"]["text"] == "Blood pressure":
+            vitals["blood_pressure"] = f"{res['component'][0]['valueQuantity']['value']}/{res['component'][1]['valueQuantity']['value']} mmHg"
+        if res["resourceType"] == "Observation" and res["code"]["text"] == "Body mass index":
+            vitals["bmi"] = f"{res['valueQuantity']['value']} {res['valueQuantity']['unit']}"
+
+    return {
+        "patient": {
+            "name": name,
+            "gender": gender,
+            "dob": birth_date,
+        },
+        "conditions": conditions,
+        "medications": medications,
+        "vitals": vitals,
+        "alerts": cds.get("alerts", []),
+    }
