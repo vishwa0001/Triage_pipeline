@@ -1,5 +1,33 @@
 const API_URL = "http://localhost:8000/api";
 
+/* ---------- PAGINATION STATE ---------- */
+let critPage = 1;
+const critPageSize = 5;
+
+let allPage = 1;
+const allPageSize = 10;
+
+function renderPager(el, { page, pageSize, total }, onChange) {
+  if (!el) return;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+
+  el.innerHTML = `
+    <div class="text-muted">Showing ${start}-${end} of ${total}</div>
+    <div class="btn-group">
+      <button class="btn btn-sm btn-outline-secondary" ${page <= 1 ? "disabled" : ""} id="pgPrev">Prev</button>
+      <span class="btn btn-sm btn-light disabled">Page ${page} / ${totalPages}</span>
+      <button class="btn btn-sm btn-outline-secondary" ${page >= totalPages ? "disabled" : ""} id="pgNext">Next</button>
+    </div>
+  `;
+
+  const prev = el.querySelector("#pgPrev");
+  const next = el.querySelector("#pgNext");
+  if (prev) prev.onclick = () => onChange(Math.max(1, page - 1));
+  if (next) next.onclick = () => onChange(Math.min(totalPages, page + 1));
+}
+
 /* ---------- HELPERS ---------- */
 
 // Classify severity based on alert text
@@ -76,16 +104,16 @@ function wireNavModeLinks(id) {
   setLinkOrClick(document.getElementById("fullNav"), "all_details", "All Details");
 }
 
-
 /* ---------- DASHBOARD ---------- */
 
 async function loadDashboard() {
-  const countRes = await fetch(`${API_URL}/critical/count`);
-  const { critical_patient_count } = await countRes.json();
-
-  const patientsRes = await fetch(`${API_URL}/patients`);
-  const patients = await patientsRes.json();
-  const normalCount = patients.length - critical_patient_count;
+  const [countRes, critCountRes] = await Promise.all([
+    fetch(`${API_URL}/patients/count`),
+    fetch(`${API_URL}/critical/count`)
+  ]);
+  const { total } = await countRes.json();
+  const { critical_patient_count } = await critCountRes.json();
+  const normalCount = total - critical_patient_count;
 
   // Pie chart
   const ctx = document.getElementById("patientsChart")?.getContext("2d");
@@ -106,41 +134,47 @@ async function loadDashboard() {
     });
   }
 
-  // Critical patients table
+  await loadCriticalPatientsPage(critPage);
+}
+
+async function loadCriticalPatientsPage(page) {
+  critPage = page;
   const tableBody = document.querySelector("#criticalPatientsTable tbody");
-  if (tableBody) {
-    const critRes = await fetch(`${API_URL}/critical/patients`);
-    const { critical_patients } = await critRes.json();
+  const pagerEl = document.getElementById("critPager");
+  if (!tableBody || !pagerEl) return;
 
-    tableBody.innerHTML = "";
-    critical_patients.forEach(cp => {
-      const alertsBlock = renderAlertBadges(cp.alerts);
+  const res = await fetch(`${API_URL}/critical/patients?page=${critPage}&page_size=${critPageSize}`);
+  const data = await res.json(); // { items, total, page, page_size }
 
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td>${cp.patient.mrn}</td>
-        <td>${cp.patient.first_name} ${cp.patient.last_name}</td>
-        <td>${cp.patient.age}</td>
-        <td>${cp.patient.gender}</td>
-        <td style="max-width:380px; white-space:normal;">
-          <div class="d-flex flex-wrap gap-1">${alertsBlock}</div>
-        </td>
-        <td class="text-nowrap">
-          <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">All Details</button>
-          <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
-        </td>
-      `;
-      tableBody.appendChild(row);
-    });
-  }
+  tableBody.innerHTML = "";
+  data.items.forEach(cp => {
+    const alertsBlock = renderAlertBadges(cp.alerts);
+
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${cp.patient.mrn}</td>
+      <td>${cp.patient.first_name} ${cp.patient.last_name}</td>
+      <td>${cp.patient.age}</td>
+      <td>${cp.patient.gender}</td>
+      <td style="max-width:380px; white-space:normal;">
+        <div class="d-flex flex-wrap gap-1">${alertsBlock}</div>
+      </td>
+      <td class="text-nowrap">
+        <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">All Details</button>
+        <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
+      </td>
+    `;
+    tableBody.appendChild(row);
+  });
+
+  renderPager(pagerEl, { page: data.page, pageSize: data.page_size, total: data.total }, (newPage) => {
+    loadCriticalPatientsPage(newPage);
+  });
 }
 
 /* ---------- ALL PATIENTS LIST ---------- */
 
 async function showAllPatients() {
-  const res = await fetch(`${API_URL}/patients`);
-  const patients = await res.json();
-
   document.body.innerHTML = `
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
       <div class="container-fluid">
@@ -152,8 +186,12 @@ async function showAllPatients() {
     </nav>
 
     <div class="container mt-4">
-      <h3>All Patients</h3>
-      <table class="table table-striped table-hover">
+      <div class="d-flex justify-content-between align-items-center">
+        <h3 class="mb-0">All Patients</h3>
+        <div id="allPatientsPager"></div>
+      </div>
+
+      <table class="table table-striped table-hover mt-3">
         <thead class="table-dark">
           <tr>
             <th>MRN</th>
@@ -161,25 +199,44 @@ async function showAllPatients() {
             <th class="text-end">Actions</th>
           </tr>
         </thead>
-        <tbody>
-          ${patients.map(p => `
-            <tr>
-              <td>${p.mrn}</td>
-              <td>${p.first_name} ${p.last_name}</td>
-              <td class="text-end">
-                <button class="btn btn-sm btn-success me-2" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
-                <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">All Details</button>
-              </td>
-            </tr>
-          `).join("")}
-        </tbody>
+        <tbody id="allPatientsTableBody"></tbody>
       </table>
+
+      <div id="allPatientsPagerBottom" class="d-flex justify-content-between align-items-center"></div>
     </div>
 
     <footer class="bg-light text-center py-3 mt-4">
       <p class="mb-0">&copy; 2025 AI-Powered Triage System</p>
     </footer>
   `;
+
+  await loadAllPatientsPage(allPage);
+}
+
+async function loadAllPatientsPage(page) {
+  allPage = page;
+  const body = document.getElementById("allPatientsTableBody");
+  const pagerTop = document.getElementById("allPatientsPager");
+  const pagerBottom = document.getElementById("allPatientsPagerBottom");
+
+  const res = await fetch(`${API_URL}/patients?page=${allPage}&page_size=${allPageSize}`);
+  const data = await res.json(); // { items, total, page, page_size }
+
+  body.innerHTML = data.items.map(p => `
+    <tr>
+      <td>${p.mrn}</td>
+      <td>${p.first_name} ${p.last_name}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-success me-2" onclick="viewPatientSummary(${p.patient_id})">Summary</button>
+        <button class="btn btn-sm btn-primary" onclick="viewPatient(${p.patient_id})">All Details</button>
+      </td>
+    </tr>
+  `).join("");
+
+  const meta = { page: data.page, pageSize: data.page_size, total: data.total };
+  const onChange = (newPage) => loadAllPatientsPage(newPage);
+  renderPager(pagerTop, meta, onChange);
+  renderPager(pagerBottom, meta, onChange);
 }
 
 /* ---------- NAV HELPERS ---------- */

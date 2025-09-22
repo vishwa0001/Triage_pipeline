@@ -1,29 +1,44 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 from app.db import patients_collection, fhir_collection
-from app.services import mock_ocr_pipeline, mock_cds
-from app.services import has_critical_alerts
+from app.services import mock_ocr_pipeline, mock_cds, has_critical_alerts
 
 router = APIRouter()
 
 @router.get("/patients")
-def get_patients():
-    return list(patients_collection.find({}, {"_id": 0}))
+def get_patients(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100)
+):
+    skip = (page - 1) * page_size
+    total = patients_collection.count_documents({})
+    items = list(
+        patients_collection.find({}, {"_id": 0})
+        .skip(skip)
+        .limit(page_size)
+    )
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
+
+@router.get("/patients/count")
+def get_patients_count():
+    total = patients_collection.count_documents({})
+    return {"total": total}
+
 
 @router.get("/patient/{patient_id}")
 def get_patient(patient_id: int):
     return patients_collection.find_one({"patient_id": patient_id}, {"_id": 0})
 
+
 @router.get("/pipeline/{patient_id}")
 def run_pipeline(patient_id: int):
-    # Step 1: OCR & NLP
     bundle = mock_ocr_pipeline(patient_id)
-    # Step 2: CDS
     cds = mock_cds(bundle)
     return {"bundle": bundle, "cds": cds}
 
+
 @router.get("/critical/count")
 def get_critical_count():
-    from app.db import patients_collection
     critical_count = 0
     patients = list(patients_collection.find({}, {"_id": 0, "patient_id": 1}))
     for p in patients:
@@ -34,18 +49,24 @@ def get_critical_count():
 
 
 @router.get("/critical/patients")
-def get_critical_patients():
-    from app.db import patients_collection
-    critical_patients = []
-    patients = list(patients_collection.find({}, {"_id": 0}))
-    for p in patients:
+def get_critical_patients(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100)
+):
+    all_patients = list(patients_collection.find({}, {"_id": 0}))
+    critical_patients_all = []
+    for p in all_patients:
         alerts = has_critical_alerts(p["patient_id"])
         if alerts:
-            critical_patients.append({
-                "patient": p,
-                "alerts": alerts
-            })
-    return {"critical_patients": critical_patients}
+            critical_patients_all.append({"patient": p, "alerts": alerts})
+
+    total = len(critical_patients_all)
+    start = (page - 1) * page_size
+    end = start + page_size
+    items = critical_patients_all[start:end]
+
+    return {"items": items, "total": total, "page": page, "page_size": page_size}
+
 
 @router.get("/pipeline/simple/{patient_id}")
 def run_pipeline_simple(patient_id: int):
@@ -57,20 +78,20 @@ def run_pipeline_simple(patient_id: int):
 
     cds = mock_cds(bundle)
 
-    # Extract basic info
-    patient = next((e["resource"] for e in bundle["entry"] if e["resource"]["resourceType"] == "Patient"), None)
+    patient = next(
+        (e["resource"] for e in bundle["entry"] if e["resource"]["resourceType"] == "Patient"),
+        None
+    )
     name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}" if patient else "Unknown"
     gender = patient.get("gender") if patient else ""
     birth_date = patient.get("birthDate") if patient else ""
 
-    # Extract conditions
     conditions = [
         e["resource"]["code"]["text"]
         for e in bundle["entry"]
         if e["resource"]["resourceType"] == "Condition"
     ]
 
-    # Extract medications
     medications = [
         {
             "medication": e["resource"]["medicationCodeableConcept"]["text"],
@@ -80,7 +101,6 @@ def run_pipeline_simple(patient_id: int):
         if e["resource"]["resourceType"] == "MedicationRequest"
     ]
 
-    # Extract key vitals (bp, bmi, cholesterol)
     vitals = {}
     for e in bundle["entry"]:
         res = e["resource"]
