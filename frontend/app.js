@@ -1,6 +1,6 @@
 const API_URL = "http://localhost:8000/api";
 
-// Draw pie chart (home)
+// Dashboard: load pie chart + critical patients table
 async function loadDashboard() {
   const countRes = await fetch(`${API_URL}/critical/count`);
   const { critical_patient_count } = await countRes.json();
@@ -28,7 +28,6 @@ async function loadDashboard() {
     });
   }
 
-
   // Critical patients table
   const tableBody = document.querySelector("#criticalPatientsTable tbody");
   if (tableBody) {
@@ -37,14 +36,21 @@ async function loadDashboard() {
 
     tableBody.innerHTML = "";
     critical_patients.forEach(cp => {
+      // Turn alerts into pill-style badges
+      const alertsList = cp.alerts.map(a =>
+        `<span class="badge bg-danger me-1 mb-1">${a}</span>`
+      ).join(" ");
+
       const row = document.createElement("tr");
       row.innerHTML = `
         <td>${cp.patient.mrn}</td>
         <td>${cp.patient.first_name} ${cp.patient.last_name}</td>
         <td>${cp.patient.age}</td>
         <td>${cp.patient.gender}</td>
-        <td>${cp.alerts.join(", ")}</td>
-        <td>
+        <td style="max-width:300px; white-space:normal;">
+          <div class="d-flex flex-wrap">${alertsList}</div>
+        </td>
+        <td class="text-nowrap">
           <button class="btn btn-sm btn-primary me-2" onclick="viewPatient(${cp.patient.patient_id})">Full</button>
           <button class="btn btn-sm btn-success" onclick="viewPatientSummary(${cp.patient.patient_id})">Summary</button>
         </td>
@@ -54,7 +60,7 @@ async function loadDashboard() {
   }
 }
 
-// All patients list (aligned table + header/footer)
+// All patients list (with proper table and footer)
 async function showAllPatients() {
   const res = await fetch(`${API_URL}/patients`);
   const patients = await res.json();
@@ -100,7 +106,7 @@ async function showAllPatients() {
   `;
 }
 
-// Navigate helpers
+// Navigation helpers
 function viewPatient(patientId) {
   window.location.href = `patient.html?id=${patientId}&mode=full`;
 }
@@ -112,16 +118,16 @@ function viewPatientSummary(patientId) {
 async function loadPatientDetails() {
   const params = new URLSearchParams(window.location.search);
   const id = params.get("id");
-  const mode = params.get("mode") || "summary"; // default to summary for nurses
+  const mode = params.get("mode") || "summary"; // default = summary
   if (!id) return;
 
-  // Set navbar shortcuts (Summary / Full)
+  // Set navbar toggles
   const summaryLink = document.getElementById("summaryNav");
   const fullLink = document.getElementById("fullNav");
   if (summaryLink) summaryLink.setAttribute("href", `patient.html?id=${id}&mode=summary`);
   if (fullLink) fullLink.setAttribute("href", `patient.html?id=${id}&mode=full`);
 
-  // Patient header (always shown)
+  // Patient header info
   const res = await fetch(`${API_URL}/patient/${id}`);
   const patient = await res.json();
   if (document.getElementById("patientName")) {
@@ -134,7 +140,7 @@ async function loadPatientDetails() {
         <div class="col"><div><strong>Age:</strong><br>${patient.age}</div></div>
         <div class="col"><div><strong>Gender:</strong><br>${patient.gender}</div></div>
         <div class="col"><div><strong>Race:</strong><br>${patient.race}</div></div>
-        <div class="col d-none d-md-block"><div class="subtle"><strong>MRN:</strong><br>${patient.mrn}</div></div>
+        <div class="col d-none d-md-block"><div class="text-muted"><strong>MRN:</strong><br>${patient.mrn}</div></div>
       </div>
     `;
   }
@@ -155,12 +161,11 @@ async function loadPatientDetails() {
   }
 }
 
-// Nurse-friendly summary (horizontal cards)
+// Nurse-friendly summary view
 async function loadPatientSummary(patientId) {
   const res = await fetch(`${API_URL}/pipeline/simple/${patientId}`);
   const data = await res.json();
 
-  // Fallbacks
   const conditions = (data.conditions && data.conditions.length) ? data.conditions : ["None documented"];
   const meds = (data.medications && data.medications.length) ? data.medications : [];
   const vitals = data.vitals || {};
@@ -168,7 +173,7 @@ async function loadPatientSummary(patientId) {
 
   document.getElementById("pipelineOutput").innerHTML = `
     <div class="card p-3 mb-3">
-      <h5 class="mb-3">Summary View <span class="badge rounded-pill text-bg-danger pill-badge ms-2">${alerts.filter(a => a !== "No critical alerts").length}</span></h5>
+      <h5 class="mb-3">Summary View <span class="badge rounded-pill text-bg-danger ms-2">${alerts.filter(a => a !== "No critical alerts").length}</span></h5>
       <div class="card p-3 mb-2">
         <h6 class="mb-1">${data.patient.name}</h6>
         <div><strong>DOB:</strong> ${data.patient.dob || "-"}</div>
@@ -176,10 +181,9 @@ async function loadPatientSummary(patientId) {
       </div>
 
       <div class="row row-cols-1 row-cols-lg-3 g-3">
-        <!-- Conditions -->
         <div class="col">
           <div class="card h-100">
-            <div class="card-body scroll-card">
+            <div class="card-body">
               <h6>Conditions</h6>
               <ul class="mb-0">
                 ${conditions.map(c => `<li>${c}</li>`).join("")}
@@ -188,44 +192,41 @@ async function loadPatientSummary(patientId) {
           </div>
         </div>
 
-        <!-- Medications -->
         <div class="col">
           <div class="card h-100">
-            <div class="card-body scroll-card">
+            <div class="card-body">
               <h6>Medications</h6>
               ${
                 meds.length
                 ? `<ul class="mb-0">${meds.map(m => `<li><strong>${m.medication}</strong> – ${m.instructions}</li>`).join("")}</ul>`
-                : `<div class="subtle">None documented</div>`
+                : `<div class="text-muted">None documented</div>`
               }
             </div>
           </div>
         </div>
 
-        <!-- Vitals -->
         <div class="col">
           <div class="card h-100">
-            <div class="card-body scroll-card">
+            <div class="card-body">
               <h6>Vitals</h6>
               <ul class="mb-0">
                 ${vitals.blood_pressure ? `<li><strong>Blood Pressure:</strong> ${vitals.blood_pressure}</li>` : ""}
                 ${vitals.bmi ? `<li><strong>BMI:</strong> ${vitals.bmi}</li>` : ""}
-                ${(!vitals.blood_pressure && !vitals.bmi) ? `<li class="subtle">No vitals found</li>` : ""}
+                ${(!vitals.blood_pressure && !vitals.bmi) ? `<li class="text-muted">No vitals found</li>` : ""}
               </ul>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Alerts -->
       <div class="card mt-3">
         <div class="card-body">
           <h6 class="mb-2">Alerts</h6>
           <ul class="mb-0">
             ${
               alerts.length
-                ? alerts.map(a => `<li class="${a === "No critical alerts" ? "subtle" : "text-danger"}">${a}</li>`).join("")
-                : `<li class="subtle">No alerts</li>`
+                ? alerts.map(a => `<li class="${a === "No critical alerts" ? "text-muted" : "text-danger"}">${a}</li>`).join("")
+                : `<li class="text-muted">No alerts</li>`
             }
           </ul>
         </div>
@@ -234,6 +235,6 @@ async function loadPatientSummary(patientId) {
   `;
 }
 
-// Auto-load where applicable
+// Auto-loaders
 if (document.getElementById("patientsChart")) loadDashboard();
 if (document.getElementById("patientDetails")) loadPatientDetails();
