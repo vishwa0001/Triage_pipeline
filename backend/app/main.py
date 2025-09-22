@@ -1,15 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import router as api_router
+from .seed_data import seed_patients
 
 app = FastAPI(title="Mock Triage Pipeline API", version="0.1")
 
-# Allow frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+def startup_event():
+    seed_patients()
 
 app.include_router(api_router, prefix="/api")

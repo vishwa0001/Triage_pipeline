@@ -2,13 +2,18 @@ import random
 from .db import patients_collection, fhir_collection
 
 def mock_ocr_pipeline(patient_id: int):
-    """Simulate OCR & NLP → FHIR parsing"""
-    bundle = fhir_collection.find_one({"patient_id": patient_id}, {"_id": 0})
+    patient = patients_collection.find_one({"patient_id": patient_id}, {"_id": 0, "mrn": 1})
+    if not patient:
+        return {"error": "No patient found"}
+    mrn = patient["mrn"]
+
+    bundle = fhir_collection.find_one({"entry.resource.id": mrn}, {"_id": 0})
     if not bundle:
         return {"error": "No bundle found"}
-    # Add mock NLP parsing
     bundle["nlp_status"] = "Parsed with mock LLM"
     return bundle
+
+
 
 def mock_cds(bundle):
     """Simulate Clinical Decision Support"""

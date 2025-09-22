@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:8000/api";
+const API_URL = "http://backend:8000/api";
 
 async function loadPatients() {
   const res = await fetch(`${API_URL}/patients`);
