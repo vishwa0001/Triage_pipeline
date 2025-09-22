@@ -7,11 +7,12 @@ def mock_ocr_pipeline(patient_id: int):
         return {"error": "No patient found"}
     mrn = patient["mrn"]
 
-    bundle = fhir_collection.find_one({"entry.resource.id": mrn}, {"_id": 0})
+    bundle = fhir_collection.find_one({"mrn": mrn}, {"_id": 0})  # use top-level mrn
     if not bundle:
         return {"error": "No bundle found"}
     bundle["nlp_status"] = "Parsed with mock LLM"
     return bundle
+
 
 
 
