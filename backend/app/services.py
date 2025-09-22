@@ -26,3 +26,17 @@ def mock_cds(bundle):
                 if comp["code"]["text"] == "LDL" and comp["valueQuantity"]["value"] >= 160:
                     alerts.append("High LDL cholesterol: consider statin")
     return {"alerts": alerts or ["No critical alerts"]}
+
+
+def has_critical_alerts(patient_id: int):
+    """Return alerts if patient has critical ones, else None"""
+    bundle = mock_ocr_pipeline(patient_id)
+    if "error" in bundle:
+        return None
+    
+    cds = mock_cds(bundle)
+    alerts = cds.get("alerts", [])
+    # Check if all alerts are "No critical alerts"
+    if all(a == "No critical alerts" for a in alerts):
+        return None
+    return alerts
